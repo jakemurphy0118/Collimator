@@ -1,0 +1,44 @@
+//--------------------------------------------------------------------
+// RunAction.hh
+//
+// Description: Defines the run itself. include file
+// Changes: 7/18/05 None yet
+//--------------------------------------------------------------------
+
+#ifndef RunAction_h
+#define RunAction_h 1
+
+#include "G4UserRunAction.hh"
+#include "globals.hh"
+#include "TimeDistribution.hh"
+#include <TH1F.h>
+
+class G4Run;
+class PrimaryGeneratorAction;
+class EventAction;
+
+class RunAction : public G4UserRunAction
+{
+public:
+  RunAction(PrimaryGeneratorAction*);
+  //  RunAction(PrimaryGeneratorAction*,RootAnalysis*);
+  ~RunAction();
+  TH1F* GetoPSTimingHistogramPtr();
+  TH1F* GetpPSTimingHistogramPtr();
+
+public:
+  void BeginOfRunAction(const G4Run*);
+  void EndOfRunAction(const G4Run*);
+
+  
+private:
+  PrimaryGeneratorAction* genAction;
+  EventAction* evtAction;
+  TimeDistribution* timedistr;
+  TH1F* timingHistoPS;
+  TH1F* timingHistpPS;
+  //  TH1F* timingHist;
+  Double_t BRatio;
+};
+
+#endif

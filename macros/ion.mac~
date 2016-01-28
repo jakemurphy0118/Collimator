@@ -1,0 +1,43 @@
+#/det/defineSourceHolder Cylinder_Asymmetrical
+/det/update
+#/grdm/setRadioactiveDecayFile 11 22 UserRadData_z11.a22
+# Clear the source and tell GPS to make multiple vertices
+#Create sodium-22
+/gps/source/clear
+# Create the first particle
+/gps/source/add 1
+/gps/position 0 0 0 cm
+/gps/particle ion
+/gps/ion 11 22
+/gps/pos/type Plane
+/gps/pos/shape Circle
+/gps/pos/centre 0. 0.0 0. mm
+/gps/pos/radius 5. mm
+/gps/ang/type iso
+#/gps/pos/rot1 -1 0 0 
+#/gps/pos/rot2 0 1 0 
+#/gps/direction 0 0 1
+/gps/source/add 2
+/gps/position 0 0 0 cm
+/gps/particle ion
+/gps/ion 11 22
+/gps/pos/type Plane
+/gps/pos/shape Circle
+/gps/pos/centre 0. 0. 0. mm
+/gps/pos/radius 5. mm
+/gps/pos/rot1 -1 0 0 
+/gps/pos/rot2 0 1 0 
+#/gps/direction 0 0 -1
+#Run Simulation
+#/vis/filtering/trajectories/create/particleFilter 
+#/vis/filtering/trajectories/particleFilter-0/add gamma
+##/vis/filtering/trajectories/particleFilter-0/invert true
+#/vis/modeling/trajectories/create/drawByParticleID
+#/vis/modeling/trajectories/drawByParticleID-0/set gamma cyan
+#/vis/modeling/trajectories/drawByParticleID-0/set e+ yellow
+#/random/setDirectoryName /nas02/home/c/b/cbartram/Caliope_Work/CALIOPE-BUILD
+#/random/resetEngineFrom run0evt0.rndm
+#/tracking/verbose 1
+#/run/beamOn 10000000
+/run/beamOn 100000
+#/run/beamOn 100000

@@ -1,0 +1,19 @@
+The collimator simulation differs from the normal CALIOPE simulation (from around january 9th) in the following ways:
+
+--DetectorConstruction.cc 
+	-no source holder
+	-no electromagnet
+	-calls buildcollimator function (actual fxn is in DetectorConstruction.hh)
+	-current version has a quartz block at the source position becuase no 1022 peak on the totalEnergy_APEX histogram was seen when something was not at the source position
+
+--G4PSGeneration.cc
+	-AtRestDoIt function now only contains Do2GammaDecay to remove o-Ps physics
+
+--RunAction.cc
+	-creates 2 histos currently for two methods of filling zpositions
+
+--EventAction.cc
+	--contains two sections of code (they are contained within comments in order to locate them easily) that are new
+		-section 1 fills zPos_someHits histo if a single bar's edep was within a range around 511 keV (fills just that one bars' zPositions)
+		-section 2 fills zPos_someHits3 histo if only 2 bars were hit in the event, they were both within a range around 511 keV and the copy numbers of the bars differ by exactly 12 (should hopefully mean they are opposite one another) (fills both bars' zPositions)
+	

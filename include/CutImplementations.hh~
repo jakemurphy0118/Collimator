@@ -1,0 +1,16 @@
+#ifndef CutImplementations_h
+#define CutImplementations_h 1
+
+class CutImplementations
+{
+  
+public:
+  void DoAnalysisCuts(G4double, G4double, G4int, G4double, G4double, G4double, G4double);
+  void RyanReconstruction();
+  void YamazakiReconstruction();
+  
+private:
+
+};
+
+#endif

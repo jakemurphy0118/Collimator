@@ -1,0 +1,96 @@
+//
+// ********************************************************************
+// * License and Disclaimer                                           *
+// *                                                                  *
+// * The  Geant4 software  is  copyright of the Copyright Holders  of *
+// * the Geant4 Collaboration.  It is provided  under  the terms  and *
+// * conditions of the Geant4 Software License,  included in the file *
+// * LICENSE and available at  http://cern.ch/geant4/license .  These *
+// * include a list of copyright holders.                             *
+// *                                                                  *
+// * Neither the authors of this software system, nor their employing *
+// * institutes,nor the agencies providing financial support for this *
+// * work  make  any representation or  warranty, express or implied, *
+// * regarding  this  software system or assume any liability for its *
+// * use.  Please see the license in the file  LICENSE  and URL above *
+// * for the full disclaimer and the limitation of liability.         *
+// *                                                                  *
+// * This  code  implementation is the result of  the  scientific and *
+// * technical work of the GEANT4 collaboration.                      *
+// * By using,  copying,  modifying or  distributing the software (or *
+// * any work based  on the software)  you  agree  to acknowledge its *
+// * use  in  resulting  scientific  publications,  and indicate your *
+// * acceptance of all terms of the Geant4 Software license.          *
+// ********************************************************************
+//
+//
+// $Id: SteppingAction.hh,v 1.1 2010/10/18 15:56:17 maire Exp $
+// GEANT4 tag $Name: geant4-09-04 $
+//
+// 
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+#ifndef SteppingAction_h
+#define SteppingAction_h 1
+
+#include "G4UserSteppingAction.hh"
+#include "globals.hh"
+#include <fstream>
+//#include "TimeDistribution.hh"
+#include <TTree.h>
+#include <TROOT.h>
+#include <vector>
+#include <TH1F.h>
+class DetectorConstruction;
+class EventAction;
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+class SteppingAction : public G4UserSteppingAction
+{
+public:
+  void SetVetoFlag(G4bool i){selectedVeto = i;};
+  SteppingAction(DetectorConstruction*, EventAction*);
+  virtual ~SteppingAction();
+  double GetBranchingRatio();
+  void UserSteppingAction(const G4Step*);
+    
+private:
+  DetectorConstruction* detector;
+  EventAction*          eventaction;
+  G4bool selectedVeto;
+  int fTrackID;
+  int fParentID;
+  std::ofstream thisFile;
+  std::ofstream materialFile;
+  //  std::ofstream momentumFile;
+  //  std::ofstream momentaFile;
+  G4double fPreGlobalT;
+  G4double fPostGlobalT;
+  G4double sumLocalTimes;
+  //  TimeDistribution* timedistr;
+  TTree *stepTree;
+  TFile *RootFile;
+  int eventNum;
+  int oldEventNum;
+  G4String fFileName;
+  std::vector< std::vector<double> >* gammaRayStorage_withSource;
+  std::vector< std::vector<double> >* gammaRayStorage_noSource;
+  std::vector< std::vector<double> >* gammaRayCoordinates;
+  Double_t timeRootOPS;
+  Double_t timeRootPPS;
+  int counter;
+  G4int fCounterVertex;
+  G4int fCounterOutsideSrc;
+  G4int fEventNumber;
+  EventAction* evtRef;
+  TH1F* timingHistoPS;
+  TH1F* timingHistpPS;
+  double bratio;
+};
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+#endif

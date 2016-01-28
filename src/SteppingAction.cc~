@@ -1,0 +1,298 @@
+#include <TRandom3.h>
+#include <TROOT.h>
+#include <TFile.h>
+#include "SteppingAction.hh"
+#include "G4RunManager.hh"
+#include <fstream>
+#include "DetectorConstruction.hh"
+#include "EventAction.hh"
+#include "UserEventInformation.hh"
+#include <TH1F.h>
+#include <TF1.h>
+#include "G4Event.hh"
+#include "G4EventManager.hh"
+#include "G4ios.hh"
+#include "G4VProcess.hh"
+#include "G4Step.hh"
+#include "G4Material.hh"
+#include "TimeDistribution.hh"
+#include "G4EventManager.hh"
+#include "AnalysisManager.hh"
+#include <vector>
+using namespace std;
+
+SteppingAction::SteppingAction(DetectorConstruction* det,EventAction* evt) :detector(det), eventaction(evt)					 
+{
+  timingHistoPS = evt->GetoPSTimingHistogramPtr();
+  timingHistpPS = evt->GetpPSTimingHistogramPtr();
+  timingHistoPS_2Gamma = evt->GetoPS_2GammaTimingHistogramPtr();
+  timingHistoPS_3Gamma = evt->GetoPS_3GammaTimingHistogramPtr();
+  timingHistpPS_2Gamma = evt->GetpPS_2GammaTimingHistogramPtr();
+  timingHistpPS_3Gamma = evt->GetpPS_3GammaTimingHistogramPtr();
+  selectedVeto = 0;
+  evtRef = evt;
+  fEventNumber = -1;
+  sumLocalTimes=0;
+  fCounterVertex=-1;
+  fCounterOutsideSrc=-1;
+  gammaRayStorage_noSource = evt->GetGammaRayVector_NoSource();
+  gammaRayStorage_withSource = evt->GetGammaRayVector_WithSource();
+  gammaRayCoordinates= evt->GetGammaRayCoordinates();
+  pSSubtypePtr = evt->GetPsSubTypePtr();
+
+}
+
+SteppingAction::~SteppingAction()
+{ 
+
+}
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+
+void SteppingAction::UserSteppingAction(const G4Step* aStep)
+{
+
+//collimator investigation
+	/*G4StepPoint* preStep = aStep->GetPreStepPoint();
+	G4StepPoint* postStep = aStep->GetPostStepPoint();
+	G4Track* theTrack = aStep->GetTrack();
+	G4ParticleDefinition* particleType = theTrack->GetDefinition();
+	G4String particleName = particleType->GetParticleName();
+	G4String volumeName = preStep->GetPhysicalVolume()->GetLogicalVolume()->GetName();
+
+	if (particleName = "gamma" && postStep->GetKineticEnergy() == 0.){
+	
+			G4cout << "gamma stopped in : " << postStep->GetPhysicalVolume()->GetName() << G4endl;
+		
+	}
+*/
+//end collimator investigation
+
+  // Select a random time delay from the o-PS timing (perturbed triplet if B field present) histogram
+  timeRootOPS = timingHistoPS->GetRandom();
+
+  // Select a random time delay from the p-PS timing (perturbed singlet if B field present) histogram
+  timeRootPPS = timingHistpPS->GetRandom();
+
+  timeRootOPS_2Gamma = timingHistoPS_2Gamma->GetRandom();
+  timeRootPPS_2Gamma = timingHistpPS_2Gamma->GetRandom();
+  timeRootOPS_3Gamma = timingHistoPS_3Gamma->GetRandom();
+  timeRootPPS_3Gamma = timingHistpPS_3Gamma->GetRandom();
+  // Timing Details to be used later and for troubleshooting purposes
+  G4double fPreLocalT =  aStep->GetPreStepPoint()->GetLocalTime();
+  G4double fPreGlobalT = aStep->GetPreStepPoint()->GetGlobalTime();
+  G4double fPreProperT = aStep->GetPreStepPoint()->GetProperTime();
+  G4double fPostLocalT = aStep->GetPostStepPoint()->GetLocalTime();
+  //  G4double fPostGlobalT = aStep->GetPostStepPoint()->GetGlobalTime();
+  G4double fPostProperT = aStep->GetPostStepPoint()->GetProperTime();
+  G4double fPostGlobalT = aStep->GetTrack()->GetGlobalTime();
+
+  //==========================================
+  // fEventNumber=formerEventNumber
+  //==========================================
+  G4int eventNumber = G4RunManager::GetRunManager()->GetCurrentEvent()->GetEventID();
+
+  if (eventNumber != fEventNumber) {
+    fEventNumber = eventNumber;
+    fCounterVertex = -1;
+    fCounterOutsideSrc = -1;
+  }
+
+  //===========================================
+  // Get the step number
+  // Particle name
+  // Pre and Post Step Points
+  //===========================================
+  //  G4int stepno = aStep->GetTrack()->GetCurrentStepNumber();
+  G4ParticleDefinition* particle = aStep->GetTrack()->GetDefinition();
+  G4String partName = particle->GetParticleName();
+  G4StepPoint* preStepPoint = aStep->GetPreStepPoint();
+  G4StepPoint* postStepPoint = aStep->GetPostStepPoint();
+  //===========================================
+
+  G4Material *material = aStep->GetPreStepPoint()->GetMaterial();
+
+  fTrackID = aStep->GetTrack()->GetTrackID();
+  fParentID= aStep->GetTrack()->GetParentID();
+
+  const G4Track* fTrack=aStep->GetTrack();
+  const G4VProcess* creatorProcess = fTrack->GetCreatorProcess();
+
+  G4String processName;
+  processName="NULL";
+  if(creatorProcess!=NULL){
+    processName=creatorProcess->GetProcessName();
+  }
+  else
+    {
+      processName="NULL";
+    }
+
+  if(material!=NULL){
+    G4String mName = material->GetName();
+
+    G4int subtype=-1;
+    if(creatorProcess!=NULL){
+      subtype = creatorProcess->GetProcessSubType();
+    }   
+
+    UserEventInformation *eventinfo=(UserEventInformation*)G4EventManager::GetEventManager()->GetConstCurrentEvent()->GetUserInformation();
+
+    // Filling of zPos Histograms
+    G4String mat = material->GetName();
+    G4double edep = aStep->GetTotalEnergyDeposit();
+    G4ThreeVector pos = preStepPoint->GetPosition();
+    G4double pos_z = pos.getZ();
+    G4int copyNumber = preStepPoint->GetTouchableHandle()->GetCopyNumber();//current level is 0: -1 results for (1) with LenaLab
+
+    G4double globalTime = aStep->GetTrack()->GetGlobalTime();   
+
+    //====================================================                                                                                                  
+    // Important Timing Code: Resets the Time if Ps decay                                                                                                   
+    //====================================================
+    G4double reset;
+    if(processName=="PSDecay"){
+
+      //Subtype 2612345 denotes that this is para-Ps decay in the absence of a magnetic field
+      if(subtype==2512346){
+	*pSSubtypePtr = 0;
+	reset = timeRootPPS*ns;
+      }
+
+      //Subtype 2612345 denotes that this is ortho-Ps decay in the absence of a magnetic field
+      if(subtype==2612345){
+	*pSSubtypePtr = 1;
+	reset = timeRootOPS*ns;
+      }
+
+      //Subtype 2612345 denotes that this is perturbed para-Ps decay into 2 gamma rays
+      if(subtype==2712346){
+	*pSSubtypePtr = 2;
+	reset = timeRootPPS_2Gamma*ns;
+      }
+
+      //Subtype 2812345 denotes that this is perturbed ortho-Ps decay into 2 gamma rays
+      if(subtype==2812345){
+	*pSSubtypePtr = 3;
+	reset = timeRootOPS_2Gamma*ns;
+      }
+
+      //Subtype 2612345 denotes that this is perturbed para-Ps decay into 3 gamma rays
+      if(subtype==2912346){
+	*pSSubtypePtr = 4;
+	reset = timeRootPPS_3Gamma*ns;
+      }
+
+      //Subtype 2612345 denotes that this is perturbed para-Ps decay into 3 gamma rays
+      if(subtype==3012345){
+	*pSSubtypePtr = 5;
+	reset = timeRootOPS_3Gamma*ns;
+      }
+
+      G4double sameTime = reset;
+      G4double trigger = aStep->GetTrack()->GetGlobalTime();
+      G4EventManager::GetEventManager()->GetUserStackingAction()->SetTrigger(trigger);
+      G4EventManager::GetEventManager()->GetUserStackingAction()->SetSameTime(sameTime);
+      G4EventManager::GetEventManager()->GetStackManager()->ReClassify();
+      aStep->GetTrack()->SetGlobalTime(trigger+reset);	   
+      fPostGlobalT = aStep->GetTrack()->GetGlobalTime();
+      
+    }
+
+    //==============================
+    // Subtype 2612345 is PSDecay: o-Ps
+    //==============================
+    if(processName=="PSDecay"){
+
+      // Look for 3 gamma decays only
+      if((subtype==2612345)||(subtype==2912346)||(subtype==3012345)){
+	
+	//Get general energy and momentum
+	G4double kin_energy=aStep->GetTrack()->GetKineticEnergy();
+	
+	//===============================================================
+	// Get the last step outside of source: Working on this
+	//===============================================================
+	G4StepPoint* point1 = aStep->GetPreStepPoint();
+	const G4LogicalVolume* logVol;
+	G4Material *mat;
+	G4String name = point1->GetPhysicalVolume()->GetLogicalVolume()->GetName();
+
+	if(fCounterOutsideSrc<2){
+	    if(point1->GetStepStatus() == fGeomBoundary && name == "vacuumVolumeExt"){
+
+	    if (partName=="gamma" && subtype==2612345) {
+	      logVol=fTrack->GetLogicalVolumeAtVertex();
+	      mat=logVol->GetMaterial();
+	      G4String materialName=mat->GetName();
+	      fCounterOutsideSrc++;
+	      (*gammaRayStorage_withSource)[fCounterOutsideSrc][0]=fTrack->GetKineticEnergy();
+	      (*gammaRayStorage_withSource)[fCounterOutsideSrc][1]=point1->GetMomentumDirection().x();
+	      (*gammaRayStorage_withSource)[fCounterOutsideSrc][2]=point1->GetMomentumDirection().y();
+	      (*gammaRayStorage_withSource)[fCounterOutsideSrc][3]=point1->GetMomentumDirection().z();
+	      (*gammaRayStorage_withSource)[fCounterOutsideSrc][4]=eventNumber;	      
+	      (*gammaRayCoordinates)[0][0]=fTrack->GetPosition().x();	      
+	      (*gammaRayCoordinates)[0][1]=fTrack->GetPosition().y();	      
+	      (*gammaRayCoordinates)[0][2]=fTrack->GetPosition().z();	      
+	    }
+	    }
+	}
+
+	//==============================================
+	// Get the vertex momenta and energy of o-Ps
+	//==============================================
+
+	if(fCounterVertex<2){
+	if (partName=="gamma" && fTrack->GetCurrentStepNumber() == 1 && subtype==2612345) {
+	  fCounterVertex++;
+	  logVol=fTrack->GetLogicalVolumeAtVertex();
+	  mat=logVol->GetMaterial();
+	  G4String materialName=mat->GetName();
+
+	  if(materialName!="Air"){
+	    (*gammaRayStorage_noSource)[fCounterVertex][0]=fTrack->GetVertexKineticEnergy();
+	    (*gammaRayStorage_noSource)[fCounterVertex][1]=fTrack->GetVertexMomentumDirection().x();
+	    (*gammaRayStorage_noSource)[fCounterVertex][2]=fTrack->GetVertexMomentumDirection().y();
+	    (*gammaRayStorage_noSource)[fCounterVertex][3]=fTrack->GetVertexMomentumDirection().z();
+	    (*gammaRayStorage_noSource)[fCounterVertex][4]=eventNumber;
+	    
+	    /*		      (*gammaRayCoordinates)[0][0]=fTrack->GetPosition().x();
+			      G4cout << (*gammaRayCoordinates)[0][0] << G4endl;
+			      (*gammaRayCoordinates)[0][1]=fTrack->GetPosition().y();
+			      G4cout << (*gammaRayCoordinates)[0][1] << G4endl;
+			      (*gammaRayCoordinates)[0][2]=fTrack->GetPosition().z();
+		      G4cout << (*gammaRayCoordinates)[0][2] << G4endl;*/
+	  }
+	}
+	}	
+      }
+    }
+    
+    G4String procName=aStep->GetPostStepPoint()->GetProcessDefinedStep()->GetProcessName();
+    
+    fPostGlobalT = aStep->GetTrack()->GetGlobalTime();
+    
+    if ((mat.compare("NaI(Tl)")==0) && (edep>0.))
+      {	
+	eventinfo->AddToSetOfHitBars(copyNumber);
+	eventinfo->AddHitTime(fPostGlobalT,copyNumber);
+	
+	// Get list of hit bars
+	std::set<G4int> hitBarSet=eventinfo->GetSetOfHitBars();
+	TRandom3 gRandom(0);
+	G4double randEdep1 = gRandom.Gaus(edep, 0.14*edep/2.355);
+	G4double randEdep2 = gRandom.Gaus(edep, 0.14*edep/2.355);
+	G4double A1 = (edep)*exp(-0.00447*((550/2)+pos_z));
+	G4double A2 = (edep)*exp(-0.00447*((550/2)-pos_z));
+	// AddTotA for THAT particular copy number
+	eventinfo->AddTotA(A1,A2,copyNumber);
+	eventinfo->AddTotZ(pos_z,copyNumber);
+	eventinfo->AddEdep(edep,copyNumber);
+	eventinfo->AddCounter();
+      }
+	
+  }
+}
+
+
+//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......

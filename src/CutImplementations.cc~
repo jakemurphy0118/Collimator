@@ -1,0 +1,36 @@
+//
+// CutImplementations
+//
+#include "CutImplementations.hh"
+
+CutImplementations::CutImplementations()
+{
+}
+
+CutImplementations::~CutImplementations()
+{
+}
+void CutImplementations::DoAnalysisCuts(totalEnergy,time,numBarHits,magVectorSum,k1Energy,k2Energy,k3Energy,)
+{
+  G4String identifier;
+  // Energy Cut
+  if ( totalEnergy==blahblahblah ) {
+    identifier="energyCut1";
+    RyanReconstruction();
+    YamazakiReconstruction();
+  }
+
+  
+  
+}
+
+
+
+void CutImplementations::RyanReconstruction()
+{
+
+}
+void CutImplementations::YamazakiReconstruction()
+{
+
+}
